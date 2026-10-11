@@ -1,0 +1,8 @@
+import Icon from './Icon'
+
+function TransactionDrawer({ transaction, onClose }) {
+  if (!transaction) return null
+  return <div className="drawer-backdrop" role="presentation" onClick={onClose}><aside className="transaction-drawer" role="dialog" aria-modal="true" aria-label="Transaction details" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="overline">Transaction detail</p><h2>{transaction.id}</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close transaction details"><Icon name="close" size={18} /></button></div><div className="drawer-status"><span className={`table-status ${transaction.level.toLowerCase()}`}><i />{transaction.level} risk</span><span className={`decision-status ${transaction.decision.toLowerCase()}`}>{transaction.decision}</span></div><div className="drawer-amount"><span>Payment amount</span><strong>{transaction.amount}</strong></div><dl className="drawer-details"><div><dt>Previous spending</dt><dd>{transaction.previousSpending}</dd></div><div><dt>Recipient</dt><dd>{transaction.recipient}</dd></div><div><dt>Risk score</dt><dd>{transaction.score}/100</dd></div><div><dt>Timestamp</dt><dd>{transaction.timestamp}</dd></div></dl><div className="drawer-signals"><p className="overline">Risk signals</p>{transaction.signals.map((signal) => <div key={signal}><span><Icon name="alert" size={14} /></span><strong>{signal}</strong></div>)}</div><p className="demo-note"><Icon name="info" size={14} /> Demo transaction data. Connect this surface to the FastAPI risk engine when ready.</p></aside></div>
+}
+
+export default TransactionDrawer

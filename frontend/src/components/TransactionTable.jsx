@@ -1,0 +1,6 @@
+function TransactionTable({ transactions, onSelect }) {
+  if (!transactions.length) return <div className="empty-state"><strong>No transactions found</strong><span>Try adjusting your search or filters.</span></div>
+  return <div className="table-wrap"><table><thead><tr><th>Transaction ID</th><th>Amount</th><th>Recipient</th><th>Risk score</th><th>Risk level</th><th>Decision</th><th>Time</th></tr></thead><tbody>{transactions.map((transaction) => <tr key={transaction.id} className={onSelect ? 'clickable-row' : ''} onClick={() => onSelect?.(transaction)} tabIndex={onSelect ? 0 : undefined} onKeyDown={(event) => { if (onSelect && (event.key === 'Enter' || event.key === ' ')) onSelect(transaction) }}><td><strong className="transaction-code">{transaction.id}</strong></td><td><strong>{transaction.amount}</strong></td><td>{transaction.recipient}</td><td><div className="score-cell"><strong>{transaction.score}</strong><span>/100</span><i className={transaction.level.toLowerCase()} style={{ width: `${transaction.score}%` }} /></div></td><td><span className={`table-status ${transaction.level.toLowerCase()}`}><i />{transaction.level}</span></td><td><span className={`decision-status ${transaction.decision.toLowerCase()}`}>{transaction.decision}</span></td><td>{transaction.time}</td></tr>)}</tbody></table></div>
+}
+
+export default TransactionTable
