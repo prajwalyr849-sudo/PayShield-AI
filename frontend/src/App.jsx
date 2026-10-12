@@ -7,6 +7,7 @@ import Transactions from './pages/Transactions'
 import RiskIntelligence from './pages/RiskIntelligence'
 import Alerts from './pages/Alerts'
 import Settings from './pages/Settings'
+import Checkout from './pages/Checkout'
 
 function AppLayout() {
   return (
@@ -20,6 +21,8 @@ function AppLayout() {
           <Route path="/risk-intelligence" element={<RiskIntelligence />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout/return" element={<Checkout />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

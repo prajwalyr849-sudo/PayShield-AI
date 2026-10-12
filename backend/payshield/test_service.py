@@ -1,6 +1,6 @@
 from backend.payment.models import Transaction, TransactionItem
 from backend.payshield.service import evaluate_transaction
-
+import pytest
 
 def test_payshield_transaction_flow():
 
@@ -33,3 +33,17 @@ def test_payshield_transaction_flow():
     assert result["risk_level"] in ["LOW", "MEDIUM", "HIGH"]
     assert result["final_decision"] in ["ALLOW", "REVIEW", "BLOCK"]
     assert "policy_decision" in result
+
+def test_zero_amount_is_rejected():
+    transaction = Transaction(
+        transaction_id="TXN-INVALID",
+        user_id="USER-001",
+        merchant_name="Amazon",
+        merchant_category="electronics",
+        amount=0,
+        currency="INR",
+        payment_method="paypal",
+    )
+
+    with pytest.raises(ValueError, match="positive"):
+        evaluate_transaction(transaction)

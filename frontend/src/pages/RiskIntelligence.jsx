@@ -1,14 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-import RiskCard from '../components/RiskCard'
-import RiskReasons from '../components/RiskReasons'
-
-const distribution = [{ label: 'Low', value: 68, count: '8,512', color: 'green' }, { label: 'Medium', value: 23, count: '2,881', color: 'amber' }, { label: 'High', value: 7, count: '875', color: 'red' }, { label: 'Critical', value: 2, count: '248', color: 'critical' }]
-const factors = [{ label: 'Amount anomaly', score: 42, note: 'High deviation from baseline', color: 'red' }, { label: 'Recipient novelty', score: 28, note: 'No prior payment history', color: 'amber' }, { label: 'Behavioral signals', score: 18, note: 'Activity outside usual pattern', color: 'blue' }, { label: 'Device and velocity', score: 12, note: 'No significant deviation', color: 'slate' }]
+import { getAuditHistory } from '../services/api'
 
 function RiskIntelligence() {
-  const [showDemo, setShowDemo] = useState(true)
-  return <><PageHeader eyebrow="AI explainability" title="Risk intelligence" description="Understand the signals behind every payment decision." action={<span className="demo-label">MOCK MODEL · v2.4.1</span>} /><div className="demo-banner"><span><i /> Demo values only</span><p>This view uses mock data while the Python risk engine is being developed.</p><button type="button" onClick={() => setShowDemo(!showDemo)}>{showDemo ? 'Hide notice' : 'Show notice'}</button></div><section className="risk-overview-grid"><RiskCard score={80} /><article className="panel confidence-card"><p className="overline">Model confidence</p><h2>94.8%</h2><div className="confidence-ring"><span>94.8<small>%</small></span></div><p className="muted-text">The demo model is highly confident in this assessment based on the available signals.</p></article></section>{showDemo && <section className="intelligence-grid"><RiskReasons /><article className="panel distribution-card"><div className="card-heading"><div><p className="overline">Network overview</p><h2>Risk score distribution</h2></div></div><div className="distribution-bars">{distribution.map((item) => <div className="distribution-row" key={item.label}><span>{item.label}</span><div><i className={item.color} style={{ width: `${item.value * 1.3}%` }} /></div><strong>{item.value}%</strong><small>{item.count}</small></div>)}</div></article></section>}<section className="panel factors-card"><div className="card-heading"><div><p className="overline">Feature contribution</p><h2>Risk factors</h2></div><span className="muted-text">Contribution to score · Demo</span></div><div className="factor-grid">{factors.map((factor) => <div className="factor-card" key={factor.label}><div className={`factor-icon ${factor.color}`} /> <span>{factor.label}</span><strong>{factor.score}%</strong><div className="factor-bar"><i className={factor.color} style={{ width: `${factor.score * 2}%` }} /></div><small>{factor.note}</small></div>)}</div></section></>
+  const [records, setRecords] = useState([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getAuditHistory(500)
+      .then((response) => setRecords(response.records || []))
+      .catch((requestError) => setError(requestError.message))
+  }, [])
+
+  const distribution = useMemo(() => records.reduce((result, record) => {
+    const decision = record.final_decision || record.decision || 'UNKNOWN'
+    result[decision] = (result[decision] || 0) + 1
+    return result
+  }, {}), [records])
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="AI explainability"
+        title="Risk intelligence"
+        description="Inspect the actual risk and policy outcomes produced by PayShield."
+      />
+      {error && <p className="api-error" role="alert">{error}</p>}
+      <section className="metrics-grid" aria-label="Risk decisions">
+        {['ALLOW', 'REVIEW', 'BLOCK'].map((decision) => (
+          <article className="metric-card panel" key={decision}>
+            <span className="overline">{decision}</span>
+            <strong>{distribution[decision] || 0}</strong>
+          </article>
+        ))}
+      </section>
+      <section className="page-panel panel">
+        <div className="table-heading"><div><h2>Decision explanations</h2><span>{records.length} records</span></div></div>
+        {records.length === 0 ? <p className="muted-text">No risk evaluations yet.</p> : (
+          <div className="audit-list">
+            {records.slice(0, 25).map((record, index) => (
+              <article className="audit-row" key={`${record.transaction_id || 'record'}-${record.timestamp || index}`}>
+                <div><strong>{record.transaction_id || 'Unknown transaction'}</strong><span>{record.merchant || 'Unknown merchant'}</span></div>
+                <div><strong>Risk {record.risk_score ?? 'n/a'}</strong><span>{record.decision_reason || 'No explanation recorded'}</span></div>
+                <b>{record.final_decision || record.decision || 'UNKNOWN'}</b>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  )
 }
 
 export default RiskIntelligence

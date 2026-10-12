@@ -21,7 +21,7 @@ def make_decision(amount,category,previous_spend,recipient,previous_recipient):
     elif risk_level == "HIGH":
         decision = "BLOCK"
 
-    elif policy_result["decision"]:
+    elif policy_result["decision"] == "REVIEW":
         decision = "REVIEW"
 
     elif risk_level == "MEDIUM":
@@ -65,4 +65,3 @@ print(make_decision(
     ["friend", "shop"]
 
 ))
-

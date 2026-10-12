@@ -8,6 +8,7 @@ const links = [
   { label: 'Risk Intelligence', icon: 'radar', path: '/risk-intelligence' },
   { label: 'Alerts', icon: 'bell', count: 3, path: '/alerts' },
   { label: 'Settings', icon: 'settings', path: '/settings' },
+  { label: 'Sandbox checkout', icon: 'card', path: '/checkout' },
 ]
 
 function Sidebar() {

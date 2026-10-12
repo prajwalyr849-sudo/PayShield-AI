@@ -18,6 +18,6 @@ class Transaction:
     amount:float
     currency:str
     payment_method:str
-    items:List[TransactionItem]=field(default_factory=List)
+    items:list[TransactionItem]=field(default_factory=list)
     agent_name:str="unknown"
     agent_confidence:float=0.0

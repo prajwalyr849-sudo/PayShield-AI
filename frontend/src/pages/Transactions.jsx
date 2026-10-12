@@ -1,22 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-import TransactionDrawer from '../components/TransactionDrawer'
-import TransactionTable from '../components/TransactionTable'
-import Icon from '../components/Icon'
-import { transactions } from '../data/mockData'
+import { getAuditHistory } from '../services/api'
 
 function Transactions() {
+  const [records, setRecords] = useState([])
   const [query, setQuery] = useState('')
-  const [risk, setRisk] = useState('All risk levels')
-  const [decision, setDecision] = useState('All decisions')
-  const [selected, setSelected] = useState(null)
-  const filtered = useMemo(() => transactions.filter((item) => {
-    const matchesQuery = `${item.id} ${item.recipient}`.toLowerCase().includes(query.toLowerCase())
-    const matchesRisk = risk === 'All risk levels' || item.level === risk
-    const matchesDecision = decision === 'All decisions' || item.decision === decision
-    return matchesQuery && matchesRisk && matchesDecision
-  }), [query, risk, decision])
-  return <><PageHeader eyebrow="Activity monitor" title="Transactions" description="Review, search, and investigate payment activity across your network." /><section className="page-panel panel"><div className="filters"><label className="search-field"><Icon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transaction ID or recipient" aria-label="Search transactions" /></label><select value={risk} onChange={(event) => setRisk(event.target.value)} aria-label="Filter by risk level"><option>All risk levels</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select><select value={decision} onChange={(event) => setDecision(event.target.value)} aria-label="Filter by decision"><option>All decisions</option><option>Allowed</option><option>Review</option><option>Blocked</option></select></div><div className="table-heading"><div><h2>All transactions</h2><span>{filtered.length} of {transactions.length} records</span></div><span className="demo-label">DEMO DATA</span></div><TransactionTable transactions={filtered} onSelect={setSelected} /></section><TransactionDrawer transaction={selected} onClose={() => setSelected(null)} /></>
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getAuditHistory(500)
+      .then((response) => setRecords(response.records || []))
+      .catch((requestError) => setError(requestError.message))
+  }, [])
+
+  const filtered = useMemo(() => records.filter((record) => (
+    `${record.transaction_id || ''} ${record.merchant || ''}`.toLowerCase().includes(query.toLowerCase())
+  )), [records, query])
+
+  return (
+    <>
+      <PageHeader eyebrow="Activity monitor" title="Transactions" description="Review actual PayShield decisions recorded by the backend." />
+      {error && <p className="api-error" role="alert">{error}</p>}
+      <section className="page-panel panel">
+        <label className="search-field">
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transaction or merchant" aria-label="Search transactions" />
+        </label>
+        <div className="table-heading"><div><h2>Audit transactions</h2><span>{filtered.length} records</span></div></div>
+        {filtered.length === 0 ? <p className="muted-text">No transactions match this search.</p> : (
+          <div className="audit-list">
+            {filtered.map((record, index) => (
+              <article className="audit-row" key={`${record.transaction_id || 'record'}-${record.timestamp || index}`}>
+                <div><strong>{record.transaction_id || 'Unknown transaction'}</strong><span>{record.merchant || 'Unknown merchant'}</span></div>
+                <div><strong>{record.currency || 'USD'} {Number(record.amount || 0).toFixed(2)}</strong><span>{record.decision_reason || 'No reason recorded'}</span></div>
+                <b>{record.final_decision || record.decision || 'UNKNOWN'}</b>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  )
 }
 
 export default Transactions

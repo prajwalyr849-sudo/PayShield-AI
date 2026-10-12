@@ -1,0 +1,32 @@
+.env
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Frontend dependencies
+node_modules/
+dist/
+build/
+
+# Local databases and logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# IDE and OS files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local checkout and transaction lags data\
+
+data\
+*.json1
