@@ -1,37 +1,86 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import compactLogo from '../assets/payshield - logo.jpeg'
 import Icon from './Icon'
+import { useAlerts } from '../context/AlertsContext'
 
 const links = [
   { label: 'Dashboard', icon: 'dashboard', path: '/' },
+  { label: 'Assistant Chat', icon: 'radar', path: '/assistant' },
+  { label: 'Product Search', icon: 'search', path: '/assistant/search' },
   { label: 'Transactions', icon: 'card', path: '/transactions' },
+  { label: 'Receipts', icon: 'check', path: '/receipts' },
   { label: 'Risk Intelligence', icon: 'radar', path: '/risk-intelligence' },
-  { label: 'Alerts', icon: 'bell', count: 3, path: '/alerts' },
+  { label: 'Alerts', icon: 'bell', path: '/alerts', showsAlertCount: true },
+  { label: 'Policies', icon: 'shield-check', path: '/policies' },
+  { label: 'Audit Logs', icon: 'document', path: '/audit-logs' },
   { label: 'Settings', icon: 'settings', path: '/settings' },
-  { label: 'Sandbox checkout', icon: 'card', path: '/checkout' },
 ]
 
-function Sidebar() {
+function Sidebar({ collapsed, onToggleCollapse }) {
+  const { counts } = useAlerts()
+  const location = useLocation()
+
   return (
-    <aside className="sidebar">
-      <NavLink className="brand brand-link" to="/"><img src={compactLogo} alt="PayShield AI logo" /><div><strong>PayShield</strong><small>AI</small></div></NavLink>
-      <div className="workspace-switcher">
-        <div className="workspace-avatar">P</div>
-        <div><strong>PayShield workspace</strong><span>Production</span></div>
-        <Icon name="chevronDown" size={14} />
-      </div>
-      <p className="nav-label">Workspace</p>
+    <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-toggle"
+        aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        onClick={() => onToggleCollapse((prev) => !prev)}
+      >
+        <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
+      </button>
+      {!collapsed && (
+        <NavLink className="brand brand-link" to="/">
+          <img src={compactLogo} alt="PayShield AI logo" />
+          <div>
+            <strong>PayShield</strong><small>AI</small>
+          </div>
+        </NavLink>
+      )}
       <nav className="sidebar-nav">
-        {links.map((link) => (
-          <NavLink key={link.label} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} to={link.path} end={link.path === '/'}>
-            <Icon name={link.icon} size={17} /><span>{link.label}</span>{link.count && <b>{link.count}</b>}
-          </NavLink>
-        ))}
+        {links.map((link) => {
+          const count = link.showsAlertCount ? counts.total : 0
+          const isActive = location.pathname === link.path ||
+            (link.path === '/' && location.pathname === '/')
+          return (
+            <NavLink
+              key={link.label}
+              className={({ isActive: linkActive }) =>
+                `nav-link ${linkActive || isActive ? 'active' : ''}`}
+              to={link.path}
+              end={link.path === '/' || link.path === '/assistant'}
+            >
+              <Icon name={link.icon} size={16} />
+              {!collapsed && (
+                <>
+                  <span>{link.label}</span>
+                  {count > 0 && <b>{count}</b>}
+                </>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
-      <div className="sidebar-bottom">
-        <div className="security-note"><span className="lock-icon">⌁</span><div><strong>Protected by AI</strong><span>Model v2.4.1 active</span></div></div>
-        <div className="profile-mini"><div className="profile-avatar">AS</div><div><strong>Alex Smith</strong><span>Admin</span></div><span className="more">•••</span></div>
-      </div>
+      {!collapsed && (
+        <div className="sidebar-bottom">
+          <button
+            type="button"
+            className="sidebar-toggle-text"
+            onClick={() => onToggleCollapse((prev) => !prev)}
+          >
+            <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
+            <span>{collapsed ? 'Expand' : 'Collapse'}</span>
+          </button>
+          <div className="security-note">
+            <span className="lock-icon">⌁</span>
+            <div>
+              <strong>Backend governed</strong>
+              <span>Risk and policy enforcement active</span>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

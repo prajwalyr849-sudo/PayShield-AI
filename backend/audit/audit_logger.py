@@ -1,3 +1,4 @@
+import os
 import json
 import hashlib
 from datetime import datetime, timezone
@@ -5,8 +6,9 @@ from pathlib import Path
 
 
 class AuditLogger:
-    def __init__(self, log_path="data/audit_log.jsonl"):
-        self.log_path = Path(log_path)
+    def __init__(self, log_path=None):
+        target = log_path or os.getenv("PAYSHIELD_AUDIT_LOG", "data/audit_log.jsonl")
+        self.log_path = Path(target)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
 
     def log_decision(self, decision_data):

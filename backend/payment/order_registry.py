@@ -7,6 +7,18 @@ from pathlib import Path
 class OrderRegistry:
     """Persistent, atomic registry for PayPal order processing."""
 
+    # Checkout order lifecycle states. AWAITING_BUYER_APPROVAL is the default
+    # recorded when a PayPal order is created; the server transitions the order
+    # through AUTHORIZED / CAPTURE_PENDING only after server-side verification
+    # and a PayShield ALLOW decision, and to COMPLETED / BLOCKED / FAILED only
+    # on a definitive capture outcome.
+    STATUS_AWAITING_BUYER_APPROVAL = "AWAITING_BUYER_APPROVAL"
+    STATUS_AUTHORIZED = "AUTHORIZED"
+    STATUS_CAPTURE_PENDING = "CAPTURE_PENDING"
+    STATUS_COMPLETED = "COMPLETED"
+    STATUS_BLOCKED = "BLOCKED"
+    STATUS_FAILED = "FAILED"
+
     def __init__(self, db_path=None):
         self.db_path = str(
             db_path
@@ -61,6 +73,30 @@ class OrderRegistry:
                         (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                 )
             """)
+
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS agent_budgets (
+                    agent_id TEXT PRIMARY KEY,
+                    spending_limit_cents INTEGER NOT NULL,
+                    spent_cents INTEGER NOT NULL DEFAULT 0,
+                    reserved_cents INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL DEFAULT
+                        (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                )
+            """)
+
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS agent_budget_reservations (
+                    idempotency_key TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    amount_cents INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'RESERVED'
+                        CHECK (status IN ('RESERVED', 'COMMITTED', 'RELEASED')),
+                    created_at TEXT NOT NULL DEFAULT
+                        (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                )
+            """)
+
             existing_columns = {
                 row[1]
                 for row in connection.execute(
@@ -72,6 +108,7 @@ class OrderRegistry:
                 ("external_order_id", "TEXT"),
                 ("items_json", "TEXT"),
                 ("status", "TEXT NOT NULL DEFAULT 'AWAITING_BUYER_APPROVAL'"),
+                ("idempotency_key", "TEXT"),
             ):
                 if name not in existing_columns:
                     connection.execute(
@@ -237,6 +274,259 @@ class OrderRegistry:
 
             return cursor.rowcount == 1
 
+    # ------------------------------------------------------------------
+    # Per-agent spending budget (atomic, persistent)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _to_cents(amount: float) -> int:
+        """Convert a dollar amount to integer cents for exact budget arithmetic."""
+        return int(round(float(amount) * 100))
+
+    def reserve_agent_budget(
+        self,
+        agent_id: str,
+        amount: float,
+        idempotency_key: str,
+        spending_limit: float,
+    ) -> bool:
+        """
+        Atomically check and reserve budget for one agent in a single
+        transaction.
+
+        Returns True only when the reservation was recorded. A reservation is
+        refused when the idempotency key already has a RESERVED/COMMITTED
+        reservation (duplicate attempts never double-count) or when
+        spent + reserved + amount would exceed the agent's spending limit.
+        """
+        if not agent_id or not idempotency_key:
+            return False
+        amount_cents = self._to_cents(amount)
+        limit_cents = self._to_cents(spending_limit)
+        if amount_cents <= 0 or limit_cents <= 0:
+            return False
+
+        with self._connect() as connection:
+            # BEGIN IMMEDIATE obtains the write lock before reading, so
+            # concurrent requests serialize and cannot jointly over-reserve.
+            connection.execute("BEGIN IMMEDIATE")
+
+            connection.execute(
+                """
+                INSERT INTO agent_budgets (agent_id, spending_limit_cents, spent_cents, reserved_cents)
+                VALUES (?, ?, 0, 0)
+                ON CONFLICT(agent_id)
+                DO UPDATE SET spending_limit_cents = excluded.spending_limit_cents
+                """,
+                (agent_id, limit_cents),
+            )
+
+            existing = connection.execute(
+                """
+                SELECT status, amount_cents
+                FROM agent_budget_reservations
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            ).fetchone()
+
+            # The same purchase attempt must never reserve twice. An existing
+            # RESERVED or COMMITTED reservation for this key is counted once.
+            if existing is not None and existing[0] in ("RESERVED", "COMMITTED"):
+                return True
+
+            row = connection.execute(
+                """
+                SELECT spent_cents, reserved_cents
+                FROM agent_budgets
+                WHERE agent_id = ?
+                """,
+                (agent_id,),
+            ).fetchone()
+            spent_cents, reserved_cents = int(row[0] or 0), int(row[1] or 0)
+
+            if spent_cents + reserved_cents + amount_cents > limit_cents:
+                return False  # Budget exhausted: this purchase would exceed the limit.
+
+            if existing is None:
+                connection.execute(
+                    """
+                    INSERT INTO agent_budget_reservations
+                        (idempotency_key, agent_id, amount_cents, status)
+                    VALUES (?, ?, ?, 'RESERVED')
+                    """,
+                    (idempotency_key, agent_id, amount_cents),
+                )
+            else:
+                # A RELEASED reservation for the same attempt may be re-reserved.
+                connection.execute(
+                    """
+                    UPDATE agent_budget_reservations
+                    SET status = 'RESERVED', amount_cents = ?
+                    WHERE idempotency_key = ?
+                    """,
+                    (amount_cents, idempotency_key),
+                )
+
+            connection.execute(
+                """
+                UPDATE agent_budgets
+                SET reserved_cents = reserved_cents + ?,
+                    updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                WHERE agent_id = ?
+                """,
+                (amount_cents, agent_id),
+            )
+
+            return True
+
+    def commit_agent_budget(self, idempotency_key: str, amount: float) -> bool:
+        """Transition a RESERVED budget reservation to COMMITTED (spent).
+
+        Called once a capture is confirmed. A non-reserved reservation is a
+        no-op so direct capture calls (without a preceding purchase reservation)
+        are unaffected.
+        """
+        if not idempotency_key:
+            return False
+        amount_cents = self._to_cents(amount)
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+
+            row = connection.execute(
+                """
+                SELECT agent_id, amount_cents, status
+                FROM agent_budget_reservations
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            ).fetchone()
+
+            if row is None or row[2] != "RESERVED":
+                return False
+
+            agent_id, reserved_cents = row[0], int(row[1] or 0)
+
+            connection.execute(
+                """
+                UPDATE agent_budget_reservations
+                SET status = 'COMMITTED'
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            )
+            connection.execute(
+                """
+                UPDATE agent_budgets
+                SET reserved_cents = reserved_cents - ?,
+                    spent_cents = spent_cents + ?,
+                    updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                WHERE agent_id = ?
+                """,
+                (reserved_cents, reserved_cents, agent_id),
+            )
+            return True
+
+    def release_agent_budget(self, idempotency_key: str) -> bool:
+        """Release a RESERVED budget reservation for a failed/cancelled attempt.
+
+        Only RESERVED reservations can be released: COMMITTED captures are
+        final spending, and already-released reservations are a no-op.
+        """
+        if not idempotency_key:
+            return False
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+
+            row = connection.execute(
+                """
+                SELECT agent_id, amount_cents, status
+                FROM agent_budget_reservations
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            ).fetchone()
+
+            if row is None or row[2] != "RESERVED":
+                return False
+
+            agent_id, amount_cents = row[0], int(row[1] or 0)
+
+            connection.execute(
+                """
+                UPDATE agent_budget_reservations
+                SET status = 'RELEASED'
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            )
+            connection.execute(
+                """
+                UPDATE agent_budgets
+                SET reserved_cents = reserved_cents - ?,
+                    updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                WHERE agent_id = ?
+                """,
+                (amount_cents, agent_id),
+            )
+            return True
+
+    def get_agent_budget(self, agent_id: str):
+        """Return the current budget state for an agent (cents, for exact tests)."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT spending_limit_cents, spent_cents, reserved_cents
+                FROM agent_budgets
+                WHERE agent_id = ?
+                """,
+                (agent_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "agent_id": agent_id,
+            "spending_limit_cents": int(row[0] or 0),
+            "spent_cents": int(row[1] or 0),
+            "reserved_cents": int(row[2] or 0),
+        }
+
+    def link_order_to_idempotency_key(self, order_id: str, idempotency_key: str) -> bool:
+        """Bind a PayPal order to its purchase idempotency key.
+
+        Capture uses this to commit or release the budget reserved for the
+        corresponding purchase attempt.
+        """
+        order_id = self._validate_order_id(order_id)
+        if not idempotency_key:
+            return False
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE checkout_orders
+                SET idempotency_key = ?
+                WHERE order_id = ?
+                """,
+                (idempotency_key, order_id),
+            )
+            return cursor.rowcount == 1
+
+    def get_idempotency_key_for_order(self, order_id: str):
+        """Return the purchase idempotency key bound to a PayPal order, if any."""
+        order_id = self._validate_order_id(order_id)
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT idempotency_key
+                FROM checkout_orders
+                WHERE order_id = ?
+                """,
+                (order_id,),
+            ).fetchone()
+        return row[0] if row else None
+
     def register_checkout_order(
         self,
         order_id: str,
@@ -315,6 +605,27 @@ class OrderRegistry:
         if row[10] != "AWAITING_BUYER_APPROVAL":
             result["status"] = row[10]
         return result
+
+    def set_checkout_order_status(self, order_id: str, status: str) -> bool:
+        """Transition a registered checkout order to a new lifecycle state.
+
+        Only the server may advance this state; it reflects the authoritative
+        order lifecycle, not a browser return URL.
+        """
+        order_id = self._validate_order_id(order_id)
+        if not isinstance(status, str) or not status.strip():
+            raise ValueError("Status is required")
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE checkout_orders
+                SET status = ?
+                WHERE order_id = ?
+                """,
+                (status.strip(), order_id),
+            )
+            return cursor.rowcount == 1
 
     def get_idempotent_response(self, key: str):
         with self._connect() as connection:

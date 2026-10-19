@@ -260,3 +260,65 @@ def test_registered_order_duplicate_never_captures(tmp_path):
     assert "already been processed" in result["reason"]
     paypal.verify_order.assert_not_called()
     paypal.capture_order.assert_not_called()
+
+
+def make_service_with_receipt_store(tmp_path):
+    from backend.payment.receipts import ReceiptStore
+
+    service, paypal, registry = make_registered_service(tmp_path)
+    service.receipt_store = ReceiptStore(str(tmp_path / "receipts.db"))
+    return service, paypal, registry
+
+
+def test_reserve_conflict_echoes_completed_receipt(tmp_path):
+    """A repeated callback must not turn a completed capture into a fresh BLOCK."""
+    from backend.payment.receipts import ReceiptStatus
+
+    service, paypal, registry = make_service_with_receipt_store(tmp_path)
+    service.receipt_store.create_receipt(
+        status=ReceiptStatus.COMPLETED,
+        order_id="ORDER-REGISTERED-1",
+        decision="ALLOW",
+    )
+    # Occupy the reservation so the next capture attempt hits a reserve conflict.
+    assert registry.reserve_order("ORDER-REGISTERED-1") is True
+
+    result = service.capture_registered_order("ORDER-REGISTERED-1")
+
+    assert result["success"] is True
+    assert result["decision"] == "ALLOW"
+    assert "already captured" in result["reason"]
+    paypal.capture_order.assert_not_called()
+
+
+def test_reserve_conflict_with_no_receipt_fails_closed(tmp_path):
+    """An unreconcilable reserve conflict fails closed without capturing."""
+    service, paypal, registry = make_service_with_receipt_store(tmp_path)
+    assert registry.reserve_order("ORDER-REGISTERED-1") is True
+
+    result = service.capture_registered_order("ORDER-REGISTERED-1")
+
+    assert result["success"] is False
+    assert result["decision"] == "BLOCK"
+    assert "already been processed" in result["reason"]
+    paypal.verify_order.assert_not_called()
+    paypal.capture_order.assert_not_called()
+
+
+def test_reserve_conflict_never_converts_recorded_block_to_allow(tmp_path):
+    from backend.payment.receipts import ReceiptStatus
+
+    service, paypal, registry = make_service_with_receipt_store(tmp_path)
+    service.receipt_store.create_receipt(
+        status=ReceiptStatus.BLOCKED,
+        order_id="ORDER-REGISTERED-1",
+        decision="BLOCK",
+    )
+    assert registry.reserve_order("ORDER-REGISTERED-1") is True
+
+    result = service.capture_registered_order("ORDER-REGISTERED-1")
+
+    assert result["success"] is False
+    assert result["decision"] == "BLOCK"
+    assert "recorded outcome" in result["reason"]
+    paypal.capture_order.assert_not_called()
