@@ -35,3 +35,14 @@ class FinancialConstitution:
             "decision": "BLOCK",
             "reason": "Payment exceeds the allowed limit"
         }
+
+
+# Canonical, shared policy configuration used by every purchase and capture
+# code path.  All components must import this single instance so that policy
+# limits (max_auto_payment, approval_limit, blocked_categories) are identical
+# across the evaluation, integration, and capture flows.
+DEFAULT_CONSTITUTION = FinancialConstitution(
+    max_auto_payment=10000,
+    approval_limit=60000,
+    blocked_categories=["gift_cards"],
+)

@@ -3,10 +3,11 @@ import pytest
 from backend.payment.order_registry import OrderRegistry
 
 
-def test_new_order_can_be_processed():
-    registry = OrderRegistry()
+def test_new_order_can_be_processed(tmp_path):
+    registry = OrderRegistry(tmp_path / "test.db")
 
     assert registry.mark_processed("ORDER-001") is True
+
 
 def test_duplicate_order_is_rejected(tmp_path):
     registry = OrderRegistry(tmp_path / "test.db")
@@ -15,8 +16,8 @@ def test_duplicate_order_is_rejected(tmp_path):
     assert registry.mark_processed("ORDER-001") is False
 
 
-def test_processed_order_can_be_checked():
-    registry = OrderRegistry()
+def test_processed_order_can_be_checked(tmp_path):
+    registry = OrderRegistry(tmp_path / "test.db")
 
     registry.mark_processed("ORDER-001")
 
@@ -24,16 +25,11 @@ def test_processed_order_can_be_checked():
     assert registry.is_processed("ORDER-002") is False
 
 
-def test_empty_order_id_is_rejected():
-    registry = OrderRegistry()
+def test_empty_order_id_is_rejected(tmp_path):
+    registry = OrderRegistry(tmp_path / "test.db")
 
     with pytest.raises(ValueError):
         registry.mark_processed("")
-
-def test_new_order_can_be_processed(tmp_path):
-    registry = OrderRegistry(tmp_path / "test.db")
-
-    assert registry.mark_processed("ORDER-001") is True
 
 def test_processed_order_survives_restart(tmp_path):
     db_path = tmp_path / "persistent.db"

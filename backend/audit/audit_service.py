@@ -6,7 +6,7 @@ class AuditService:
     def __init__(self, log_path="data/audit_log.jsonl"):
         self.log_path = Path(log_path)
 
-    def get_history(self, limit=50):
+    def get_history(self, limit=50, user_id=None):
         if not 1 <= limit <= 500:
             raise ValueError("Limit must be between 1 and 500")
 
@@ -25,6 +25,7 @@ class AuditService:
                 except json.JSONDecodeError:
                     continue
 
-                records.append(record)
+                if user_id is None or record.get("user_id") == user_id:
+                    records.append(record)
 
         return list(reversed(records[-limit:]))

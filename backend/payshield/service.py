@@ -1,6 +1,7 @@
 from backend.payment.models import Transaction
 from backend.policy.decision_engine import make_decision
 from backend.payshield.order_integrity import approve_order
+from backend.risk.risk_engine import is_amount_is_normal
 from backend.audit.audit_logger import AuditLogger
 
 def evaluate_transaction(
@@ -68,9 +69,20 @@ def evaluate_transaction(
         "payment_authorized": decision == "ALLOW",
         "decision": decision,
         "risk_assessment": {
-        "score": risk_score,
-        "level": risk_level,
+            "score": risk_score,
+            "level": risk_level,
+            "amount_risk": is_amount_is_normal(transaction.amount, previous_spend),
+            "recipient_risk": 40 if transaction.merchant_name not in previous_recipients else 0,
+            "previous_spend_reference": previous_spend,
+            "merchant_known": transaction.merchant_name in previous_recipients,
         },
         "policy_result": policy_result,
         "order_fingerprint":approved_order.fingerprint,
+        "decision_explanation": (
+            f"Risk score {risk_score}/100 ({risk_level}): "
+            f"amount factor {is_amount_is_normal(transaction.amount, previous_spend)}, "
+            f"merchant factor {40 if transaction.merchant_name not in previous_recipients else 0}. "
+            f"Policy {policy_result['decision']}: {policy_result.get('reason', '')}. "
+            f"Final decision: {decision}."
+        ),
     }

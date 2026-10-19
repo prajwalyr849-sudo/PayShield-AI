@@ -80,3 +80,15 @@ def test_modified_audit_record_fails_verification(tmp_path):
     path.write_text(json.dumps(record) + "\n", encoding="utf-8")
 
     assert logger.verify_integrity() is False
+
+
+def test_history_can_be_scoped_to_user(tmp_path):
+    logger = AuditLogger(tmp_path / "audit.jsonl")
+    logger.log_decision({"transaction_id": "TXN-A", "user_id": "user-a", "decision": "ALLOW"})
+    logger.log_decision({"transaction_id": "TXN-B", "user_id": "user-b", "decision": "BLOCK"})
+
+    from backend.audit.audit_service import AuditService
+
+    records = AuditService(tmp_path / "audit.jsonl").get_history(user_id="user-a")
+
+    assert [record["transaction_id"] for record in records] == ["TXN-A"]

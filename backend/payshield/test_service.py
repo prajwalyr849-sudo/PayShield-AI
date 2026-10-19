@@ -2,7 +2,8 @@ from backend.payment.models import Transaction, TransactionItem
 from backend.payshield.service import evaluate_transaction
 import pytest
 
-def test_payshield_transaction_flow():
+def test_payshield_transaction_flow(tmp_path, monkeypatch):
+    monkeypatch.setenv("PAYSHIELD_AUDIT_LOG", str(tmp_path / "test_audit.jsonl"))
 
     transaction = Transaction(
         transaction_id="TXN-001",
