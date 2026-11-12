@@ -1,0 +1,6 @@
+﻿src/components/pages/AssistantChatPage.tsx(480,18): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/components/pages/AssistantChatPage.tsx(492,13): error TS1005: ')' expected.
+src/components/pages/AssistantChatPage.tsx(492,24): error TS1005: ',' expected.
+src/components/pages/AssistantChatPage.tsx(503,14): error TS1005: ',' expected.
+src/components/pages/AssistantChatPage.tsx(542,17): error TS1005: ')' expected.
+src/components/pages/AssistantChatPage.tsx(542,18): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?

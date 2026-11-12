@@ -1,2 +1,461 @@
-html, body, #root { min-height: 100%; }
-body { margin: 0; min-width: 320px; background: #07111f; }
+@import "tailwindcss";
+
+@theme {
+  /* ── Premium light-mode fintech color system ── */
+  /* Page background: light grey-blue (Stripe / Ramp / Mercury feel) */
+  --color-base: #f5f7fb;
+  /* Secondary surface for toolbars, inputs, subtle sections */
+  --color-surface: #eef2f8;
+  --color-surface-muted: #f1f5f9;
+
+  /* Content cards and surfaces */
+  --color-surface-white: #ffffff;
+
+  /* Subtle but defined borders */
+  --color-border: #cbd5e1;
+  --color-border-hover: #94a3b8;
+  --color-border-focus: #2563eb;
+
+  /* Typography: strong near-black primary, refined secondary/muted */
+  --color-ink: #111827;
+  --color-ink-muted: #475569;
+  --color-ink-light: #64748b;
+
+  /* Brand accents */
+  --color-primary-deep: #14213d;
+  --color-accent: #2563eb;
+  --color-accent-bright: #3b82f6;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-subtle: #eff6ff;
+  --color-cyan: #0891b2;
+  --color-cyan-subtle: #eff6ff;
+
+  /* Semantic decision states (ALLOW / REVIEW / BLOCK) */
+  --color-success: #15803d;
+  --color-success-subtle: #dcfce7;
+  --color-review: #b45309;
+  --color-review-subtle: #fef3c7;
+  --color-block: #b91c1c;
+  --color-block-subtle: #fee2e2;
+
+  /* ── Typography tokens ── */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@utility font-label-xs {
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@utility font-label-sm {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@utility font-body-xs {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+@utility font-body-sm {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+@utility font-body-md {
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 400;
+}
+
+@utility font-body-lg {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+@utility font-headline-sm {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@utility font-headline-md {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@utility font-headline-lg {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@utility font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility font-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@utility ps-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-muted);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-hover);
+  }
+}
+
+@layer components {
+  /* ── Type scale ── */
+  /* ── Surface card ── */
+  .ps-card {
+    @apply bg-surface-white border border-border rounded-lg shadow-sm;
+  }
+  .ps-card-hover {
+    @apply bg-surface-white border border-border rounded-lg shadow-sm hover:border-border-hover hover:shadow transition-colors duration-150;
+  }
+
+  /* ── Receipt surface (white, printable document) ── */
+  .ps-receipt-page {
+    @apply max-w-6xl mx-auto py-8 md:py-12 px-4 sm:px-6 lg:px-8 space-y-8;
+  }
+  .ps-receipt {
+    @apply mx-auto max-w-[720px] w-full bg-surface-white border border-border rounded-xl shadow-sm overflow-hidden;
+  }
+  .ps-receipt-header {
+    @apply border-b border-border bg-white px-6 md:px-8 py-5 md:py-6;
+  }
+  .ps-receipt-section {
+    @apply border-b border-border/50 bg-white px-6 md:px-8 py-5 md:py-6;
+  }
+  .ps-receipt-section:last-child {
+    border-bottom: none;
+  }
+  .ps-receipt-footer {
+    @apply border-t border-border bg-white px-6 md:px-8 py-4 md:py-5;
+  }
+  .ps-receipt-body {
+    @apply px-6 md:px-8 py-6 bg-white;
+  }
+
+  /* ── Receipt timeline ── */
+  .ps-timeline {
+    @apply relative px-4;
+  }
+  .ps-timeline::before {
+    content: '';
+    @apply absolute left-3 top-0 bottom-0 w-0.5 bg-border;
+  }
+  .ps-timeline-item {
+    @apply relative mb-6 pl-10;
+  }
+  .ps-timeline-item:last-child {
+    @apply mb-0;
+  }
+  .ps-timeline-marker {
+    @apply absolute left-0 top-0 z-10 w-3 h-3 rounded-full border-2 border-surface-white;
+  }
+  .ps-timeline-content {
+    @apply relative z-10;
+  }
+
+  /* ── Section ── */
+  .ps-section {
+    @apply mb-8;
+  }
+  .ps-section-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  .ps-section-title {
+    @apply font-headline-md text-ink font-semibold tracking-tight leading-none;
+  }
+  .ps-section-subtitle {
+    @apply font-body-sm text-ink-muted leading-none;
+  }
+
+  /* ── Inputs ── */
+  .ps-input {
+    @apply w-full px-3 py-2 rounded-md border border-border text-ink placeholder:text-ink-light focus:outline-none focus:ring-1 focus:ring-accent transition-colors;
+  }
+  .ps-input-sm {
+    @apply w-full px-2.5 py-1.5 rounded-md border border-border text-ink placeholder:text-ink-light text-sm focus:outline-none focus:ring-1 focus:ring-accent transition-colors;
+  }
+
+  /* ── Form label ── */
+  .ps-label {
+    @apply block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5;
+  }
+
+  /* ── Buttons ── */
+  .ps-btn {
+    @apply focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .ps-btn-primary {
+    @apply ps-btn bg-primary-deep text-white hover:bg-accent hover:bg-accent-hover transition-colors;
+  }
+  .ps-btn-primary-bright {
+    @apply ps-btn bg-accent-bright text-white hover:bg-accent transition-colors;
+  }
+  .ps-btn-ghost {
+    @apply ps-btn bg-transparent text-ink hover:bg-surface hover:text-primary-deep;
+  }
+  .ps-btn-ghost-muted {
+    @apply ps-btn bg-transparent text-ink-muted hover:bg-surface hover:text-ink;
+  }
+  .ps-btn-danger {
+    @apply ps-btn bg-block/10 text-block border border-block/30 hover:bg-block/20;
+  }
+  .ps-btn-icon {
+    @apply p-2 rounded-md text-ink-muted hover:bg-surface hover:text-ink transition-colors;
+  }
+  .ps-btn-receipt {
+    @apply ps-btn bg-accent-bright text-white hover:bg-accent transition-colors w-full justify-center;
+  }
+
+  /* ── Status badges ── */
+  .ps-badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold leading-none border;
+  }
+  .ps-badge-allow {
+    @apply bg-success-subtle text-success border-success/30;
+  }
+  .ps-badge-review {
+    @apply bg-review-subtle text-review border-review/30;
+  }
+  .ps-badge-block {
+    @apply bg-block-subtle text-block border-block/30;
+  }
+  .ps-badge-neutral {
+    @apply bg-surface text-ink-muted border-border;
+  }
+
+  /* ── Decision pill ── */
+  .ps-decision {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-mono font-semibold border;
+  }
+  .ps-decision-allow { @apply bg-success-subtle text-success border-success/30; }
+  .ps-decision-review { @apply bg-review-subtle text-review border-review/30; }
+  .ps-decision-block { @apply bg-block-subtle text-block border-block/30; }
+
+  /* ── Table ── */
+  .ps-table {
+    @apply w-full border-collapse text-left;
+  }
+  .ps-table th {
+    @apply font-label-xs text-xs text-ink-muted uppercase tracking-wider font-semibold pb-3.5 pt-3.5 px-3 text-left border-b border-border bg-surface;
+  }
+  .ps-table td {
+    @apply font-body-sm text-sm text-ink pb-4 pt-4 px-3 border-b border-border/40 align-middle;
+  }
+  .ps-table td.font-tabular { font-variant-numeric: tabular-nums; }
+  .ps-table tr:last-child td { @apply border-b-0; }
+  .ps-table tr:hover td { @apply bg-surface/60; }
+
+  /* ── Page shell ── */
+  .app-shell {
+    @apply bg-base min-h-screen;
+  }
+  .app-main {
+    @apply flex-1 w-full lg:pl-64 pt-20 px-4 md:px-6 pb-16;
+  }
+  .app-page {
+    @apply space-y-8;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  }
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html, body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  /* ── Hide chrome when printing ── */
+  .no-print,
+  nav, aside,
+  button, .ps-btn,
+  .fixed, .z-50, .z-40, .z-30, .z-20,
+  .app-shell > header,
+  [aria-modal], .backdrop-blur {
+    display: none !important;
+  }
+  /* ── Receipt page takes the full sheet ── */
+  .ps-receipt-page,
+  .ps-receipt-page main,
+  .ps-receipt-page > div,
+  .ps-receipt-page #receipt-page {
+    display: block !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    float: none !important;
+  }
+  .ps-receipt-page {
+    min-height: unset !important;
+    space-y: unset !important;
+  }
+  /* ── Receipt surface: white, bordered, no shadow ── */
+  .ps-receipt,
+  .ps-receipt-page .ps-receipt {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .ps-receipt-header,
+  .ps-receipt-section,
+  .ps-receipt-body,
+  .ps-receipt-footer {
+    display: block !important;
+    background: #ffffff !important;
+    border: none !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    padding: 16px 18px !important;
+    margin: 0 !important;
+    page-break-inside: avoid !important;
+  }
+  .ps-receipt-section:last-child,
+  .ps-receipt-footer {
+    border-bottom: none !important;
+  }
+  /* ── Typography for print ── */
+  .ps-receipt-page h1, .ps-receipt-page h2, .ps-receipt-page h3,
+  .ps-receipt-page h4, .ps-receipt-page h5, .ps-receipt-page h6 {
+    color: #111827 !important;
+  }
+  .ps-receipt-page p, .ps-receipt-page span, .ps-receipt-page div,
+  .ps-receipt-page td, .ps-receipt-page th {
+    color: #111827 !important;
+  }
+  .ps-receipt-page .text-ink-muted,
+  .ps-receipt-page .text-ink-light,
+  .ps-receipt-page .text-slate-500,
+  .ps-receipt-page .text-slate-600,
+  .ps-receipt-page .text-slate-700,
+  .ps-receipt-page .text-slate-800,
+  .ps-receipt-page .text-slate-900 {
+    color: #111827 !important;
+  }
+  /* Keep decision badges legible in print (solid fills) */
+  .ps-receipt-page .ps-decision-allow {
+    background: #dcfce7 !important; color: #15803d !important; border: 1px solid #15803d !important;
+  }
+  .ps-receipt-page .ps-decision-review {
+    background: #fef3c7 !important; color: #b45309 !important; border: 1px solid #b45309 !important;
+  }
+  .ps-receipt-page .ps-decision-block {
+    background: #fee2e2 !important; color: #b91c1c !important; border: 1px solid #b91c1c !important;
+  }
+  .ps-receipt-page .bg-success-subtle { background: #dcfce7 !important; }
+  .ps-receipt-page .bg-review-subtle { background: #fef3c7 !important; }
+  .ps-receipt-page .bg-block-subtle { background: #fee2e2 !important; }
+  /* Amounts stay strong and tabular */
+  .ps-receipt-page .font-tabular { font-variant-numeric: tabular-nums !important; }
+  /* Sections never split across pages */
+  .ps-receipt-page section,
+  .ps-receipt-page .ps-timeline-item,
+  .ps-receipt-page .ps-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 16px !important;
+  }
+  .ps-receipt-page .ps-timeline::before { display: none !important; }
+  .ps-receipt-page .ps-timeline-item {
+    margin-bottom: 14px !important;
+    padding-left: 0 !important;
+  }
+  .ps-receipt-page .ps-timeline-marker { display: none !important; }
+  /* No watermark/decorative images required; keep brand logo */
+  .ps-receipt-page .no-print { display: none !important; }
+}

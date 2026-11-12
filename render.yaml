@@ -1,0 +1,59 @@
+# PayShield AI — Render Deployment Configuration
+#
+# Deploys two services:
+#   1. payshield-ai-backend  — FastAPI web service (Python)
+#   2. payshield-ai-frontend — Vite-built static site
+#
+# Security notes:
+#   - PayPal Sandbox-only (enforced by backend code)
+#   - No secrets are committed here. Set PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET,
+#     and PAYSHIELD_INTEGRATION_API_KEY in the Render dashboard (not in this file).
+#   - SQLite database persists via a Render persistent disk. On Render's free tier
+#     without a disk, data resets on each redeploy — acceptable for a demo, not
+#     for production.
+
+services:
+  - type: web
+    name: payshield-ai-backend
+    env: python
+    region: oregon
+    branch: main
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: PAYSHIELD_DB_PATH
+        value: /var/data/payshield_payments.sqlite3
+      - key: PAYSHIELD_AUDIT_LOG
+        value: /var/data/audit_log.jsonl
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYSHIELD_INTEGRATION_API_KEY
+        sync: false
+      - key: PAYSHIELD_ALLOW_DEMO_LOGIN
+        value: false
+      - key: PAYSHIELD_FRONTEND_URL
+        value: https://payshield-ai-frontend.onrender.com
+      - key: PAYSHIELD_ALLOWED_ORIGINS
+        value: https://payshield-ai-frontend.onrender.com,http://localhost:3000,http://127.0.0.1:3000
+    disk:
+      name: payshield-data
+      mountPath: /var/data
+      sizeGB: 1
+
+  - type: static
+    name: payshield-ai-frontend
+    env: static
+    region: oregon
+    branch: main
+    buildCommand: "cd frontend && npm ci && npm run build"
+    publishPath: frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://payshield-ai-backend.onrender.com
