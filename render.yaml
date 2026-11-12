@@ -3,7 +3,7 @@
     name: payshield-ai-backend
     runtime: python
     region: oregon
-    plan: starter
+    plan: 0.5c-512mb
     branch: feat/premium-receipt-redesign
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
@@ -43,3 +43,4 @@
     envVars:
       - key: VITE_API_BASE_URL
         value: https://payshield-ai-backend.onrender.com
+
